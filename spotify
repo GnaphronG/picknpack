@@ -19,11 +19,14 @@ IMAGE="spotify:$VERSION"
 ENTRYPOINT="spotify"
 USER=$(id -u)
 GROUP=$(getent group audio | cut -d : -f 3)
-DOCKERFILE="stowage/spotify.dockerfile"
+SWD=$(readlink -f "$0" | xargs dirname)
+DOCKERFILE="$SWD/stowage/spotify.dockerfile"
 
-if [ -z $(docker images -q $IMAGE) ]; then
+
+if [ -z $(docker images -q $IMAGE) -o x$1 = 'xbuild' ]; then
+	shift 1 $@
 	docker pull $IMAGE || 
-	docker build -t $IMAGE -f $DOCKERFILE
+	docker build -t $IMAGE -f $DOCKERFILE $SWD/stowage
 fi
 
 
