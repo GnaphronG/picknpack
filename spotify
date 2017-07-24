@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# Run go in a container
+#
+# This script will attempt to mirror the host paths by using volumes for the
+# following paths:
+#   * $(pwd)
+#   * $(dirname $GOPATH) if it's set
+#
+# You can add additional volumes (or any docker run options) using
+# the $DOCKER_RUN_OPTIONS environment variable.
+#
+
+
+set -e
+
+VERSION=${VERSION:-"local"}
+IMAGE="spotify:$VERSION"
+ENTRYPOINT="spotify"
+USER=$(id -u)
+GROUP=$(getent group audio | cut -d : -f 3)
+DOCKERFILE="stowage/spotify.dockerfile"
+
+if [ -z $(docker images -q $IMAGE) ]; then
+	docker pull $IMAGE || 
+	docker build -t $IMAGE -f $DOCKERFILE
+fi
+
+
+if [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    VOLUMES="$VOLUMES -v /run/user/$ID:/run/user/$ID"
+    ENVS="$ENVS -e DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+fi
+
+# Only allocate tty if we detect one
+if [ -t 1 ]; then
+    DOCKER_RUN_OPTIONS="-t"
+fi
+if [ -t 0 ]; then
+    DOCKER_RUN_OPTIONS="$DOCKER_RUN_OPTIONS -i"
+fi
+
+VOLUMES="$VOLUMES -v /etc/passwd:/etc/passwd -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME:$HOME" 
+ENVS="$ENVS -e DISPLAY=$DISPLAY"
+DEVICES="--device /dev/snd:/dev/snd --device /dev/dri:/dev/dri"
+
+
+exec docker run --rm -u $USER:$GROUP $DOCKER_RUN_OPTIONS $VOLUMES $ENVS $DEVICES --entrypoint $ENTRYPOINT $IMAGE "$@"
