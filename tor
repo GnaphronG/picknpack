@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Run go in a container
+#
+# This script will attempt to mirror the host paths by using volumes for the
+# following paths:
+#   * $(pwd)
+#   * $(dirname $GOPATH) if it's set
+#
+# You can add additional volumes (or any docker run options) using
+# the $DOCKER_RUN_OPTIONS environment variable.
+#
+
+
+set -e
+
+VERSION=${VERSION:-"local"}
+IMAGE="tor:$VERSION"
+ENTRYPOINT="tor"
+SWD=$(readlink -f "$0" | xargs dirname)
+DOCKERFILE="$SWD/stowage/tor.dockerfile"
+TOR_PORT="9050"
+
+
+if [ -z $(docker images -q $IMAGE) -o x$1 = 'xbuild' ]; then
+	shift 1 $@
+	docker pull $IMAGE || 
+	docker build -t $IMAGE -f $DOCKERFILE $SWD/stowage
+fi
+
+
+# Only allocate tty if we detect one
+if [ -t 1 ]; then
+    DOCKER_RUN_OPTIONS="-t"
+fi
+if [ -t 0 ]; then
+    DOCKER_RUN_OPTIONS="$DOCKER_RUN_OPTIONS -i"
+fi
+
+sh -c "sleep 1; docker ps -q -f 'ancestor=$IMAGE' | xargs docker  port  | cut -d ':' -f 2 | xargs printf 'Tor is listening on: socks5://localhost:%i\n' >&2" & 
+exec docker run --rm $DOCKER_RUN_OPTIONS -p $TOR_PORT --entrypoint $ENTRYPOINT $IMAGE "$@"
