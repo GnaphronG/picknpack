@@ -21,6 +21,10 @@ SWD=$(readlink -f "$0" | xargs dirname)
 DOCKERFILE="$SWD/stowage/tor.dockerfile"
 TOR_PORT="9050"
 
+if [ $# -ge 1 -a x$1 = 'xstop' ]; then
+	docker ps -q -f "ancestor=$IMAGE" | xargs -r docker stop > /dev/null
+	exit 0;
+fi
 
 if [ -z $(docker images -q $IMAGE) -o x$1 = 'xbuild' ]; then
 	shift 1 $@
@@ -37,5 +41,5 @@ if [ -t 0 ]; then
     DOCKER_RUN_OPTIONS="$DOCKER_RUN_OPTIONS -i"
 fi
 
-sh -c "sleep 1; docker ps -q -f 'ancestor=$IMAGE' | xargs docker  port  | cut -d ':' -f 2 | xargs printf 'Tor is listening on: socks5://localhost:%i\n' >&2" & 
+sh -c "sleep 1; docker ps -q -f 'ancestor=$IMAGE' | xargs -r docker port  | cut -d ':' -f 2 | xargs -r printf 'Tor is listening on: socks5://localhost:%i\n' >&2" & 
 exec docker run --rm $DOCKER_RUN_OPTIONS -p $TOR_PORT --entrypoint $ENTRYPOINT $IMAGE "$@"
