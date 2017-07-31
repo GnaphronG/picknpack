@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Run ffmpeg in a container
+#
+# This script will attempt to mirror the host paths by using volumes for the
+# following paths:
+#   * $(pwd)
+#   * $(dirname $GOPATH) if it's set
+#
+# You can add additional volumes (or any docker run options) using
+# the $DOCKER_RUN_OPTIONS environment variable.
+#
+
+
+set -e
+
+VERSION=${VERSION:-"3.3-alpine"}
+IMAGE="jrottenberg/ffmpeg:$VERSION"
+USER=$(id -u)
+GROUP=$(id -g)
+SWD=$(readlink -f "$0" | xargs dirname)
+DOCKERFILE="$SWD/stowage/spotify.dockerfile"
+
+
+# Only allocate tty if we detect one
+if [ -t 1 ]; then
+    DOCKER_RUN_OPTIONS="$DOCKER_RUN_OPTIONS -t"
+fi
+if [ -t 0 ]; then
+    DOCKER_RUN_OPTIONS="$DOCKER_RUN_OPTIONS -i"
+fi
+
+VOLUMES="$VOLUMES -v $PWD:$PWD -v /etc/passwd:/etc/passwd" 
+
+exec docker run --rm -u $USER:$GROUP $DOCKER_RUN_OPTIONS $VOLUMES $ENVS $DEVICES -w $PWD $IMAGE "$@"
